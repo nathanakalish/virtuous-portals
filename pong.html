@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pong</title>
+  <style>
+    body {
+      background: #222;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    h1 { 
+      margin-bottom: 10px; 
+      font-size: 2em;
+    }
+    .game-info {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .info-item {
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #player-score { color: #4ecdc4; }
+    #cpu-score { color: #ff6b6b; }
+    #high-score { color: #ffd700; }
+    #instructions {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 0.9em;
+      color: #aaa;
+      max-width: 500px;
+    }
+    #game-container {
+      position: relative;
+      width: 600px;
+      height: 400px;
+      background: #111;
+      border: 4px solid #444;
+      box-shadow: 0 0 20px #000a;
+      margin-bottom: 20px;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 8px;
+      width: 280px;
+      max-width: 90vw;
+    }
+    .btn {
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+      touch-action: manipulation;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn:active { background: #666; }
+    .btn:hover { background: #555; }
+    #up { grid-column: 2; grid-row: 1; }
+    #down { grid-column: 2; grid-row: 3; }
+    #pause { grid-column: 1; grid-row: 2; }
+    #serve { grid-column: 3; grid-row: 2; background: #4ecdc4; }
+    .game-over-overlay, .pause-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      text-align: center;
+    }
+    .game-over-overlay h2 {
+      color: #ff4757;
+      font-size: 2.5em;
+      margin: 0 0 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    .final-stats {
+      margin: 20px 0;
+      font-size: 1.2em;
+    }
+    .restart-hint {
+      margin-top: 20px;
+      font-size: 1em;
+      color: #aaa;
+    }
+    @media (max-width: 650px) {
+      #game-container {
+        width: 90vw;
+        height: calc(90vw * 0.67);
+        max-width: 600px;
+        max-height: 400px;
+      }
+      h1 { font-size: 1.5em; }
+      .game-info { gap: 10px; }
+      .info-item { font-size: 1em; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pong</h1>
+  <div class="game-info">
+    <div class="info-item" id="player-score">Player: 0</div>
+    <div class="info-item" id="cpu-score">CPU: 0</div>
+    <div class="info-item" id="high-score">High Score: 0</div>
+  </div>
+  <div id="instructions">
+    Desktop: Arrow keys or W/S to move paddle, Space to serve<br>
+    Mobile: Use buttons below or swipe/tap on the game area
+  </div>
+  <div id="game-container">
+    <canvas id="game" width="600" height="400"></canvas>
+    <div class="pause-overlay" id="pause-overlay">
+      <h2>PAUSED</h2>
+      <p>Press P or tap Pause to continue</p>
+    </div>
+    <div class="game-over-overlay" id="game-over-overlay">
+      <h2 id="game-over-title">GAME OVER</h2>
+      <div class="final-stats">
+        <div id="final-player-score">Player: 0</div>
+        <div id="final-cpu-score">CPU: 0</div>
+        <div id="winner-text"></div>
+      </div>
+      <div class="restart-hint">Press R or Tap to Restart</div>
+    </div>
+  </div>
+  <div class="controls" id="mobile-controls">
+    <div></div>
+    <button class="btn" id="up">▲</button>
+    <div></div>
+    <button class="btn" id="pause">⏸️</button>
+    <div></div>
+    <button class="btn" id="serve">🏓</button>
+    <div></div>
+    <button class="btn" id="down">▼</button>
+    <div></div>
+  </div>
+  <div style="text-align: center; margin-top: 20px; font-size: 0.8em; color: #888;">
+    Created by Nathan Kalish | <a href="https://github.com/nathanakalish" target="_blank" style="color: #4ecdc4; text-decoration: none;">GitHub</a>
+  </div>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const CANVAS_WIDTH = 600;
+    const CANVAS_HEIGHT = 400;
+    
+    let playerScore = 0;
+    let cpuScore = 0;
+    let highScore = parseInt(localStorage.getItem('pongHighScore')) || 0;
+    let gameOver = false;
+    let isPaused = false;
+    let ballServed = false;
+    
+    // Game objects
+    let player = {
+      x: 20,
+      y: CANVAS_HEIGHT / 2 - 50,
+      width: 10,
+      height: 100,
+      speed: 6,
+      dy: 0
+    };
+    
+    let cpu = {
+      x: CANVAS_WIDTH - 30,
+      y: CANVAS_HEIGHT / 2 - 50,
+      width: 10,
+      height: 100,
+      speed: 4,
+      dy: 0
+    };
+    
+    let ball = {
+      x: CANVAS_WIDTH / 2,
+      y: CANVAS_HEIGHT / 2,
+      radius: 8,
+      dx: 0,
+      dy: 0,
+      speed: 5,
+      maxSpeed: 12
+    };
+    
+    let keys = {};
+    let touchStartY = 0;
+    let particles = [];
+    
+    // Initialize ball
+    function serveBall() {
+      ball.x = CANVAS_WIDTH / 2;
+      ball.y = CANVAS_HEIGHT / 2;
+      
+      // Random direction
+      const angle = (Math.random() - 0.5) * Math.PI / 3; // ±30 degrees
+      const direction = Math.random() > 0.5 ? 1 : -1;
+      
+      ball.dx = Math.cos(angle) * ball.speed * direction;
+      ball.dy = Math.sin(angle) * ball.speed;
+      ballServed = true;
+    }
+    
+    // Update player paddle
+    function updatePlayer() {
+      if (!isPaused && !gameOver) {
+        if (keys['ArrowUp'] || keys['w']) {
+          player.dy = -player.speed;
+        } else if (keys['ArrowDown'] || keys['s']) {
+          player.dy = player.speed;
+        } else {
+          player.dy = 0;
+        }
+        
+        player.y += player.dy;
+        
+        // Keep paddle on screen
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > CANVAS_HEIGHT) {
+          player.y = CANVAS_HEIGHT - player.height;
+        }
+      }
+    }
+    
+    // Update CPU paddle (AI)
+    function updateCPU() {
+      if (!isPaused && !gameOver && ballServed) {
+        const paddleCenter = cpu.y + cpu.height / 2;
+        const ballCenter = ball.y;
+        
+        // CPU difficulty adjustment based on score difference
+        const scoreDiff = cpuScore - playerScore;
+        let aiSpeed = cpu.speed;
+        
+        if (scoreDiff < -2) aiSpeed *= 1.2; // CPU catches up when behind
+        else if (scoreDiff > 2) aiSpeed *= 0.8; // CPU slows down when ahead
+        
+        // Add some randomness for more natural movement
+        const randomFactor = (Math.random() - 0.5) * 2;
+        const targetY = ballCenter + randomFactor;
+        
+        if (paddleCenter < targetY - 10) {
+          cpu.dy = aiSpeed;
+        } else if (paddleCenter > targetY + 10) {
+          cpu.dy = -aiSpeed;
+        } else {
+          cpu.dy = 0;
+        }
+        
+        cpu.y += cpu.dy;
+        
+        // Keep CPU paddle on screen
+        if (cpu.y < 0) cpu.y = 0;
+        if (cpu.y + cpu.height > CANVAS_HEIGHT) {
+          cpu.y = CANVAS_HEIGHT - cpu.height;
+        }
+      }
+    }
+    
+    // Update ball
+    function updateBall() {
+      if (!ballServed || isPaused || gameOver) return;
+      
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+      
+      // Top and bottom wall collision
+      if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= CANVAS_HEIGHT) {
+        ball.dy = -ball.dy;
+        createParticles(ball.x, ball.y, '#fff');
+      }
+      
+      // Paddle collisions
+      if (ball.dx < 0 && 
+          ball.x - ball.radius <= player.x + player.width &&
+          ball.x + ball.radius >= player.x &&
+          ball.y >= player.y &&
+          ball.y <= player.y + player.height) {
+        
+        // Player paddle hit
+        const hitPos = (ball.y - (player.y + player.height / 2)) / (player.height / 2);
+        ball.dx = Math.abs(ball.dx);
+        ball.dy = hitPos * ball.speed * 0.75;
+        
+        // Increase speed slightly
+        ball.speed = Math.min(ball.speed * 1.05, ball.maxSpeed);
+        ball.dx = ball.speed;
+        
+        createParticles(ball.x, ball.y, '#4ecdc4');
+      }
+      
+      if (ball.dx > 0 && 
+          ball.x + ball.radius >= cpu.x &&
+          ball.x - ball.radius <= cpu.x + cpu.width &&
+          ball.y >= cpu.y &&
+          ball.y <= cpu.y + cpu.height) {
+        
+        // CPU paddle hit
+        const hitPos = (ball.y - (cpu.y + cpu.height / 2)) / (cpu.height / 2);
+        ball.dx = -Math.abs(ball.dx);
+        ball.dy = hitPos * ball.speed * 0.75;
+        
+        // Increase speed slightly
+        ball.speed = Math.min(ball.speed * 1.05, ball.maxSpeed);
+        ball.dx = -ball.speed;
+        
+        createParticles(ball.x, ball.y, '#ff6b6b');
+      }
+      
+      // Scoring
+      if (ball.x < 0) {
+        // CPU scores
+        cpuScore++;
+        updateScore();
+        resetBall();
+        createParticles(ball.x, ball.y, '#ff6b6b');
+        
+        if (cpuScore >= 11) {
+          endGame();
+        }
+      } else if (ball.x > CANVAS_WIDTH) {
+        // Player scores
+        playerScore++;
+        updateScore();
+        resetBall();
+        createParticles(ball.x, ball.y, '#4ecdc4');
+        
+        if (playerScore >= 11) {
+          endGame();
+        }
+      }
+    }
+    
+    // Reset ball after scoring
+    function resetBall() {
+      ball.x = CANVAS_WIDTH / 2;
+      ball.y = CANVAS_HEIGHT / 2;
+      ball.dx = 0;
+      ball.dy = 0;
+      ball.speed = 5;
+      ballServed = false;
+      
+      // Auto-serve after 1 second
+      setTimeout(() => {
+        if (!gameOver && !isPaused) {
+          serveBall();
+        }
+      }, 1000);
+    }
+    
+    // Create particle effects
+    function createParticles(x, y, color) {
+      for (let i = 0; i < 8; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          dx: (Math.random() - 0.5) * 6,
+          dy: (Math.random() - 0.5) * 6,
+          life: 1,
+          decay: 0.02,
+          color: color
+        });
+      }
+    }
+    
+    // Update particles
+    function updateParticles() {
+      particles = particles.filter(particle => {
+        particle.x += particle.dx;
+        particle.y += particle.dy;
+        particle.life -= particle.decay;
+        return particle.life > 0;
+      });
+    }
+    
+    // Draw everything
+    function draw() {
+      // Clear canvas
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Draw center line
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(CANVAS_WIDTH / 2, 0);
+      ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Draw paddles
+      ctx.fillStyle = '#4ecdc4';
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+      
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(cpu.x, cpu.y, cpu.width, cpu.height);
+      
+      // Draw ball
+      if (ballServed) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Draw ready indicator
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press Space or Tap Serve', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 30);
+      }
+      
+      // Draw particles
+      for (let particle of particles) {
+        ctx.fillStyle = particle.color;
+        ctx.globalAlpha = particle.life;
+        ctx.fillRect(particle.x - 2, particle.y - 2, 4, 4);
+      }
+      ctx.globalAlpha = 1;
+      
+      // Draw scores on canvas
+      ctx.fillStyle = '#4ecdc4';
+      ctx.font = '48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(playerScore, CANVAS_WIDTH / 4, 60);
+      
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillText(cpuScore, (CANVAS_WIDTH * 3) / 4, 60);
+    }
+    
+    // Game loop
+    function gameLoop() {
+      if (!isPaused && !gameOver) {
+        updatePlayer();
+        updateCPU();
+        updateBall();
+        updateParticles();
+      }
+      
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // Update score display
+    function updateScore() {
+      document.getElementById('player-score').textContent = 'Player: ' + playerScore;
+      document.getElementById('cpu-score').textContent = 'CPU: ' + cpuScore;
+      
+      const currentHigh = Math.max(playerScore, cpuScore);
+      if (currentHigh > highScore) {
+        highScore = currentHigh;
+        localStorage.setItem('pongHighScore', highScore);
+        document.getElementById('high-score').textContent = 'High Score: ' + highScore;
+      }
+    }
+    
+    // End game
+    function endGame() {
+      gameOver = true;
+      
+      const winner = playerScore > cpuScore ? 'Player' : 'CPU';
+      const winnerColor = playerScore > cpuScore ? '#4ecdc4' : '#ff6b6b';
+      
+      document.getElementById('game-over-title').textContent = winner + ' Wins!';
+      document.getElementById('game-over-title').style.color = winnerColor;
+      document.getElementById('final-player-score').textContent = 'Player: ' + playerScore;
+      document.getElementById('final-cpu-score').textContent = 'CPU: ' + cpuScore;
+      document.getElementById('winner-text').textContent = winner + ' wins ' + Math.max(playerScore, cpuScore) + '-' + Math.min(playerScore, cpuScore);
+      document.getElementById('game-over-overlay').style.display = 'flex';
+    }
+    
+    // Restart game
+    function restart() {
+      playerScore = 0;
+      cpuScore = 0;
+      gameOver = false;
+      isPaused = false;
+      ballServed = false;
+      
+      ball.x = CANVAS_WIDTH / 2;
+      ball.y = CANVAS_HEIGHT / 2;
+      ball.dx = 0;
+      ball.dy = 0;
+      ball.speed = 5;
+      
+      player.y = CANVAS_HEIGHT / 2 - 50;
+      cpu.y = CANVAS_HEIGHT / 2 - 50;
+      
+      particles = [];
+      
+      document.getElementById('pause-overlay').style.display = 'none';
+      document.getElementById('game-over-overlay').style.display = 'none';
+      
+      updateScore();
+    }
+    
+    // Toggle pause
+    function togglePause() {
+      if (gameOver) return;
+      
+      isPaused = !isPaused;
+      const overlay = document.getElementById('pause-overlay');
+      overlay.style.display = isPaused ? 'flex' : 'none';
+    }
+    
+    // Keyboard controls
+    document.addEventListener('keydown', e => {
+      if (gameOver && (e.key === 'r' || e.key === 'R')) {
+        restart();
+        return;
+      }
+      
+      if (e.key === 'p' || e.key === 'P') {
+        togglePause();
+        return;
+      }
+      
+      if (e.key === ' ' && !gameOver && !isPaused && !ballServed) {
+        e.preventDefault();
+        serveBall();
+        return;
+      }
+      
+      keys[e.key] = true;
+    });
+    
+    document.addEventListener('keyup', e => {
+      keys[e.key] = false;
+    });
+    
+    // Mobile controls
+    document.getElementById('up').addEventListener('touchstart', e => {
+      e.preventDefault();
+      keys['ArrowUp'] = true;
+    });
+    document.getElementById('up').addEventListener('touchend', e => {
+      e.preventDefault();
+      keys['ArrowUp'] = false;
+    });
+    
+    document.getElementById('down').addEventListener('touchstart', e => {
+      e.preventDefault();
+      keys['ArrowDown'] = true;
+    });
+    document.getElementById('down').addEventListener('touchend', e => {
+      e.preventDefault();
+      keys['ArrowDown'] = false;
+    });
+    
+    document.getElementById('serve').addEventListener('click', e => {
+      e.preventDefault();
+      if (!gameOver && !isPaused && !ballServed) {
+        serveBall();
+      }
+    });
+    
+    document.getElementById('pause').addEventListener('click', e => {
+      e.preventDefault();
+      togglePause();
+    });
+    
+    // Touch swipe controls
+    document.getElementById('game-container').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (gameOver) {
+        restart();
+        return;
+      }
+      if (e.touches.length === 1) {
+        touchStartY = e.touches[0].clientY;
+      }
+    });
+    
+    document.getElementById('game-container').addEventListener('touchend', e => {
+      e.preventDefault();
+      if (gameOver) return;
+      
+      if (e.changedTouches.length === 1) {
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        const threshold = 30;
+        
+        if (Math.abs(dy) > threshold) {
+          if (dy < 0) {
+            // Swipe up
+            player.y = Math.max(0, player.y - 40);
+          } else {
+            // Swipe down
+            player.y = Math.min(CANVAS_HEIGHT - player.height, player.y + 40);
+          }
+        } else {
+          // Tap to serve
+          if (!ballServed && !isPaused) {
+            serveBall();
+          }
+        }
+      }
+    });
+    
+    // Tap to restart when game over
+    document.getElementById('game-container').addEventListener('click', e => {
+      if (gameOver) {
+        e.preventDefault();
+        restart();
+      }
+    });
+    
+    // Initialize game
+    document.getElementById('high-score').textContent = 'High Score: ' + highScore;
+    updateScore();
+    gameLoop();
+  </script>
+</body>
+</html>
