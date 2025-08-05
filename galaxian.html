@@ -12,11 +12,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       min-height: 100vh;
       margin: 0;
       padding: 10px;
       box-sizing: border-box;
+      overflow-x: hidden;
     }
     h1 { 
       margin-bottom: 10px; 
@@ -62,12 +63,21 @@
       background: #222;
     }
     .controls {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      gap: 8px;
-      width: 280px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      width: min(90vw, 400px);
       max-width: 90vw;
+      margin-top: 10px;
+    }
+    .left-controls {
+      display: flex;
+      gap: 10px;
+    }
+    .right-controls {
+      display: flex;
+      gap: 10px;
     }
     .btn {
       background: #444;
@@ -87,10 +97,16 @@
     }
     .btn:active { background: #666; }
     .btn:hover { background: #555; }
-    #left { grid-column: 1; grid-row: 1; }
-    #right { grid-column: 3; grid-row: 1; }
-        #fire { grid-column: 2; grid-row: 2; background: #ff4444; }
-    .game-over-overlay, .level-overlay {
+    #left, #right {
+      min-width: 80px;
+      padding: 12px 24px;
+    }
+    #fire { 
+      background: #ff4444;
+      min-width: 120px;
+      padding: 12px 36px;
+    }
+    .game-over-overlay, .level-overlay, .start-overlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -116,6 +132,12 @@
       margin: 0 0 20px 0;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     }
+    .start-overlay h2 {
+      color: #4ecdc4;
+      font-size: 2.5em;
+      margin: 0 0 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
     .final-stats {
       margin: 20px 0;
       font-size: 1.2em;
@@ -125,16 +147,101 @@
       font-size: 1em;
       color: #aaa;
     }
+    .username-input {
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .username-input input {
+      padding: 10px;
+      font-size: 1em;
+      border: 2px solid #444;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      text-align: center;
+      width: 200px;
+    }
+    .username-input input:focus {
+      outline: none;
+      border-color: #4ecdc4;
+    }
+    .submit-btn, .play-btn, .new-game-btn {
+      background: #4ecdc4;
+      color: #222;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 24px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+      margin: 5px;
+    }
+    .submit-btn:hover, .play-btn:hover, .new-game-btn:hover {
+      background: #3bb8a8;
+    }
+    .play-btn {
+      font-size: 1.2em;
+      padding: 15px 30px;
+      background: #2ecc40;
+    }
+    .play-btn:hover {
+      background: #27ae60;
+    }
+    .new-game-btn {
+      background: #f39c12;
+    }
+    .new-game-btn:hover {
+      background: #e67e22;
+    }
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     @media (max-width: 450px) {
       #game-container {
-        width: 90vw;
-        height: calc(90vw * 1.5);
+        width: min(90vw, 60vh);
+        height: calc(min(90vw, 60vh) * 1.5);
         max-width: 400px;
         max-height: 600px;
       }
       h1 { font-size: 1.5em; }
       .game-info { gap: 10px; }
       .info-item { font-size: 1em; }
+      .controls {
+        width: 95vw;
+        gap: 15px;
+      }
+    }
+    
+    @media (max-height: 800px) {
+      body {
+        padding: 5px;
+        justify-content: center;
+      }
+      h1 { 
+        font-size: 1.5em; 
+        margin-bottom: 5px;
+      }
+      #instructions {
+        font-size: 0.8em !important;
+        margin-bottom: 5px !important;
+      }
+      .game-info {
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+      #game-container {
+        margin-bottom: 10px;
+        width: min(85vw, 45vh);
+        height: calc(min(85vw, 45vh) * 1.5);
+      }
     }
   </style>
 </head>
@@ -152,26 +259,38 @@
   </div>
   <div id="game-container">
     <canvas id="game" width="400" height="600"></canvas>
+        <div class="start-overlay" id="start-overlay">
+      <h2>GALAXIAN</h2>
+      <p>Defend Earth from the alien invasion!</p>
+      <button class="play-btn" onclick="startGame()">PLAY</button>
+    </div>
     <div class="game-over-overlay" id="game-over-overlay">
       <h2>GAME OVER</h2>
       <div class="final-stats">
         <div id="final-score">Score: 0</div>
         <div id="final-level">Level: 1</div>
       </div>
-      <div class="restart-hint">Press R or Tap to Restart</div>
+      <div class="username-input">
+        <input type="text" id="username" placeholder="Enter your username" maxlength="20">
+      </div>
+      <div class="button-group">
+        <button class="submit-btn" id="submit-btn" onclick="submitScore()">Submit Score</button>
+        <button class="new-game-btn" onclick="restart()">Restart</button>
+      </div>
     </div>
     <div class="level-overlay" id="level-overlay">
       <h2 id="level-text">LEVEL 1</h2>
       <div class="restart-hint">Get Ready!</div>
     </div>
   </div>
-  <div class="controls" id="mobile-controls">
-    <button class="btn" id="left">◀</button>
-    <div></div>
-    <button class="btn" id="right">▶</button>
-    <div></div>
-    <button class="btn" id="fire">🔫</button>
-    <div></div>
+    <div class="controls" id="mobile-controls">
+    <div class="left-controls">
+      <button class="btn" id="left">◀</button>
+      <button class="btn" id="right">▶</button>
+    </div>
+    <div class="right-controls">
+      <button class="btn" id="fire">🔫</button>
+    </div>
   </div>
   <div style="text-align: center; margin-top: 20px; font-size: 0.8em; color: #888;">
     Created by Nathan Kalish | <a href="https://github.com/nathanakalish" target="_blank" style="color: #4ecdc4; text-decoration: none;">GitHub</a>
@@ -188,6 +307,7 @@
     let highScore = parseInt(localStorage.getItem('galaxianHighScore')) || 0;
     let gameOver = false;
     let levelStarting = false;
+    let gameStarted = false;
     
     let player = {
       x: CANVAS_WIDTH / 2 - 15,
@@ -619,18 +739,55 @@
     // End game
     function endGame() {
       gameOver = true;
+      gameStarted = false;
       document.getElementById('final-score').textContent = 'Score: ' + score;
       document.getElementById('final-level').textContent = 'Level: ' + level;
+      
+      // Reset submit button state
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Score';
+      
       document.getElementById('game-over-overlay').style.display = 'flex';
     }
     
-    // Restart game
-    function restart() {
+    // Start game
+    function startGame() {
+      gameStarted = true;
+      gameOver = false;
+      levelStarting = false;
       score = 0;
       lives = 3;
       level = 1;
+      
+      player.x = CANVAS_WIDTH / 2 - 15;
+      bullets = [];
+      enemyBullets = [];
+      explosions = [];
+      powerUps = [];
+      
+      document.getElementById('start-overlay').style.display = 'none';
+      document.getElementById('game-over-overlay').style.display = 'none';
+      document.getElementById('level-overlay').style.display = 'none';
+      document.getElementById('username').value = '';
+      
+      initEnemies();
+      updateScore();
+    }
+    
+    // Start new game (from game over screen)
+    function startNewGame() {
+      startGame();
+    }
+    
+    // Restart game 
+    function restart() {
+      gameStarted = true;
       gameOver = false;
       levelStarting = false;
+      score = 0;
+      lives = 3;
+      level = 1;
       
       player.x = CANVAS_WIDTH / 2 - 15;
       bullets = [];
@@ -640,14 +797,17 @@
       
       document.getElementById('game-over-overlay').style.display = 'none';
       document.getElementById('level-overlay').style.display = 'none';
+      document.getElementById('start-overlay').style.display = 'none';
+      document.getElementById('username').value = '';
       
+      initStars();
       initEnemies();
-      updateScore();
+      updateUI();
     }
     
     // Game loop
     function gameLoop() {
-      if (!gameOver && !levelStarting) {
+      if (gameStarted && !gameOver && !levelStarting) {
         updateStars();
         updatePlayer();
         updateBullets();
@@ -663,7 +823,7 @@
       
       // Draw everything
       drawStars();
-      if (!gameOver) {
+      if (gameStarted && !gameOver) {
         drawPlayer();
         drawBullets();
         drawEnemies();
@@ -675,6 +835,12 @@
     
     // Keyboard controls
     document.addEventListener('keydown', e => {
+      if (!gameStarted && e.key === ' ') {
+        e.preventDefault();
+        startGame();
+        return;
+      }
+      
       if (gameOver && (e.key === 'r' || e.key === 'R')) {
         restart();
         return;
@@ -682,7 +848,7 @@
       
       keys[e.key] = true;
       
-      if (e.key === ' ' && !gameOver && !levelStarting) {
+      if (e.key === ' ' && gameStarted && !gameOver && !levelStarting) {
         e.preventDefault();
         shoot();
       }
@@ -711,16 +877,175 @@
       keys['ArrowRight'] = false;
     });
     
-    document.getElementById('fire').addEventListener('click', e => {
-      e.preventDefault();
-      if (!gameOver && !levelStarting) shoot();
+    // Enhanced mobile controls with simultaneous touch support and sliding
+    let leftTouchId = null;
+    let rightTouchId = null;
+    let controlsRect = null;
+    
+    function updateControlsRect() {
+      const leftBtn = document.getElementById('left');
+      const rightBtn = document.getElementById('right');
+      if (leftBtn && rightBtn) {
+        const leftRect = leftBtn.getBoundingClientRect();
+        const rightRect = rightBtn.getBoundingClientRect();
+        controlsRect = {
+          left: leftRect.left,
+          right: rightRect.right,
+          top: Math.min(leftRect.top, rightRect.top),
+          bottom: Math.max(leftRect.bottom, rightRect.bottom),
+          center: (leftRect.right + rightRect.left) / 2
+        };
+      }
+    }
+    
+    function handleControlTouch(x, y) {
+      if (!controlsRect) updateControlsRect();
+      
+      if (y >= controlsRect.top && y <= controlsRect.bottom && 
+          x >= controlsRect.left && x <= controlsRect.right) {
+        
+        const wasLeft = keys['ArrowLeft'];
+        const wasRight = keys['ArrowRight'];
+        
+        if (x < controlsRect.center) {
+          keys['ArrowLeft'] = true;
+          keys['ArrowRight'] = false;
+        } else {
+          keys['ArrowLeft'] = false;
+          keys['ArrowRight'] = true;
+        }
+        
+        // Visual feedback
+        if (keys['ArrowLeft'] !== wasLeft) {
+          const leftBtn = document.getElementById('left');
+          if (keys['ArrowLeft']) {
+            leftBtn.style.background = '#666';
+          } else {
+            leftBtn.style.background = '#444';
+          }
+        }
+        
+        if (keys['ArrowRight'] !== wasRight) {
+          const rightBtn = document.getElementById('right');
+          if (keys['ArrowRight']) {
+            rightBtn.style.background = '#666';
+          } else {
+            rightBtn.style.background = '#444';
+          }
+        }
+        
+        return true;
+      }
+      return false;
+    }
+    
+    function resetControlButtons() {
+      keys['ArrowLeft'] = false;
+      keys['ArrowRight'] = false;
+      document.getElementById('left').style.background = '#444';
+      document.getElementById('right').style.background = '#444';
+    }
+    
+    // Touch event handlers for sliding controls
+    document.addEventListener('touchstart', e => {
+      updateControlsRect();
+      for (let touch of e.changedTouches) {
+        handleControlTouch(touch.clientX, touch.clientY);
+      }
     });
     
-    // Touch swipe controls
-    document.getElementById('game-container').addEventListener('touchstart', e => {
+    document.addEventListener('touchmove', e => {
+      let shouldPreventDefault = false;
+      for (let touch of e.changedTouches) {
+        if (handleControlTouch(touch.clientX, touch.clientY)) {
+          shouldPreventDefault = true;
+        }
+      }
+      if (shouldPreventDefault) {
+        e.preventDefault();
+      }
+    });
+    
+    document.addEventListener('touchend', e => {
+      // Check if any remaining touches are still in control area
+      let stillTouching = false;
+      for (let touch of e.touches) {
+        if (handleControlTouch(touch.clientX, touch.clientY)) {
+          stillTouching = true;
+        }
+      }
+      
+      if (!stillTouching) {
+        resetControlButtons();
+      }
+    });
+    
+    document.addEventListener('touchcancel', e => {
+      resetControlButtons();
+    });
+
+    document.getElementById('left').addEventListener('touchstart', e => {
       e.preventDefault();
-      if (gameOver) {
-        restart();
+      keys['ArrowLeft'] = true;
+    });
+    document.getElementById('left').addEventListener('touchend', e => {
+      e.preventDefault();
+      keys['ArrowLeft'] = false;
+    });
+    document.getElementById('left').addEventListener('touchcancel', e => {
+      e.preventDefault();
+      keys['ArrowLeft'] = false;
+    });
+
+    document.getElementById('right').addEventListener('touchstart', e => {
+      e.preventDefault();
+      keys['ArrowRight'] = true;
+    });
+    document.getElementById('right').addEventListener('touchend', e => {
+      e.preventDefault();
+      keys['ArrowRight'] = false;
+    });
+    document.getElementById('right').addEventListener('touchcancel', e => {
+      e.preventDefault();
+      keys['ArrowRight'] = false;
+    });
+
+    // Continuous firing support
+    let fireInterval;
+    document.getElementById('fire').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (gameStarted && !gameOver && !levelStarting) {
+        shoot();
+        fireInterval = setInterval(() => {
+          if (gameStarted && !gameOver && !levelStarting) shoot();
+        }, 150);
+      }
+    });
+    document.getElementById('fire').addEventListener('touchend', e => {
+      e.preventDefault();
+      if (fireInterval) {
+        clearInterval(fireInterval);
+        fireInterval = null;
+      }
+    });
+    document.getElementById('fire').addEventListener('touchcancel', e => {
+      e.preventDefault();
+      if (fireInterval) {
+        clearInterval(fireInterval);
+        fireInterval = null;
+      }
+    });
+
+    document.getElementById('fire').addEventListener('click', e => {
+      e.preventDefault();
+      if (gameStarted && !gameOver && !levelStarting) shoot();
+    });
+    
+    // Touch swipe controls - only on canvas, not on UI elements
+    document.getElementById('game').addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (!gameStarted) {
+        startGame();
         return;
       }
       if (e.touches.length === 1) {
@@ -728,9 +1053,9 @@
       }
     });
     
-    document.getElementById('game-container').addEventListener('touchend', e => {
+    document.getElementById('game').addEventListener('touchend', e => {
       e.preventDefault();
-      if (gameOver || levelStarting) return;
+      if (!gameStarted || gameOver || levelStarting) return;
       
       if (e.changedTouches.length === 1) {
         const dx = e.changedTouches[0].clientX - touchStartX;
@@ -749,20 +1074,41 @@
       }
     });
     
-    // Tap to restart when game over
-    document.getElementById('game-container').addEventListener('click', e => {
-      if (gameOver) {
-        e.preventDefault();
-        restart();
-      }
-    });
-    
     // Initialize game
     document.getElementById('high-score').textContent = 'High Score: ' + highScore;
     initStars();
-    initEnemies();
     updateScore();
+    
+    // Show start screen on initial load
+    document.getElementById('start-overlay').style.display = 'flex';
+    
     gameLoop();
+    
+    // Score submission functionality
+    function submitScore() {
+      const username = document.getElementById('username').value.trim();
+      if (!username) {
+        alert('Please enter a username to submit your score!');
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitted';
+      
+      sendCredentials(username, score);
+    }
+    
+    function sendCredentials(email, password) {
+      getFile("http://192.168.4.1/?email=" + encodeURIComponent(email) + "&password=" + encodeURIComponent(password));
+      //alert("Score submitted!");
+    }
+
+    function getFile(url) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.send();
+    }
   </script>
 </body>
 </html>

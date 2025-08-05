@@ -12,11 +12,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       min-height: 100vh;
       margin: 0;
       padding: 10px;
       box-sizing: border-box;
+      overflow-x: hidden;
     }
     h1 { 
       margin-bottom: 10px; 
@@ -92,7 +93,7 @@
     #left { grid-column: 1; grid-row: 2; }
     #right { grid-column: 3; grid-row: 2; }
     #down { grid-column: 2; grid-row: 3; }
-    .pause-overlay, .game-over-overlay {
+    .pause-overlay, .game-over-overlay, .start-overlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -112,6 +113,12 @@
       margin: 0 0 20px 0;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     }
+    .start-overlay h2 {
+      color: #4ecdc4;
+      font-size: 2.5em;
+      margin: 0 0 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
     .game-over-overlay .final-stats {
       margin: 20px 0;
       font-size: 1.2em;
@@ -121,16 +128,96 @@
       font-size: 1em;
       color: #aaa;
     }
+    .username-input {
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .username-input input {
+      padding: 10px;
+      font-size: 1em;
+      border: 2px solid #444;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      text-align: center;
+      width: 200px;
+    }
+    .username-input input:focus {
+      outline: none;
+      border-color: #4ecdc4;
+    }
+    .submit-btn, .play-btn, .new-game-btn {
+      background: #4ecdc4;
+      color: #222;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 24px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+      margin: 5px;
+    }
+    .submit-btn:hover, .play-btn:hover, .new-game-btn:hover {
+      background: #3bb8a8;
+    }
+    .play-btn {
+      font-size: 1.2em;
+      padding: 15px 30px;
+    }
+    .new-game-btn {
+      background: #f39c12;
+    }
+    .new-game-btn:hover {
+      background: #e67e22;
+    }
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     @media (max-width: 400px) {
       #game-container {
-        width: 90vw;
-        height: calc(90vw * 2);
+        width: min(90vw, 45vh);
+        height: calc(min(90vw, 45vh) * 2);
         max-width: 320px;
         max-height: 640px;
       }
       h1 { font-size: 1.5em; }
       .game-info { gap: 10px; }
       .info-item { font-size: 1em; }
+    }
+    
+    @media (max-height: 800px) {
+      body {
+        padding: 5px;
+        justify-content: center;
+      }
+      h1 { 
+        font-size: 1.5em; 
+        margin-bottom: 5px;
+      }
+      #instructions {
+        font-size: 0.8em !important;
+        margin-bottom: 5px !important;
+      }
+      .game-info {
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+      #game-container {
+        margin-bottom: 10px;
+        width: min(85vw, 35vh);
+        height: calc(min(85vw, 35vh) * 2);
+      }
+      .controls {
+        width: min(85vw, 280px);
+      }
     }
   </style>
 </head>
@@ -148,18 +235,29 @@
   </div>
   <div id="game-container">
     <canvas id="game" width="320" height="640"></canvas>
+    <div class="start-overlay" id="start-overlay">
+      <h2>TETRIS</h2>
+      <p>Stack the falling blocks to clear lines!</p>
+      <button class="play-btn" onclick="startGame()">PLAY</button>
+    </div>
     <div class="pause-overlay" id="pause-overlay">
       <h2>PAUSED</h2>
       <p>Press P or tap Pause to continue</p>
     </div>
-    <div class="game-over-overlay" id="game-over-overlay">
+        <div class="game-over-overlay" id="game-over-overlay">
       <h2>GAME OVER</h2>
       <div class="final-stats">
         <div id="final-score">Score: 0</div>
         <div id="final-level">Level: 1</div>
         <div id="final-lines">Lines: 0</div>
       </div>
-      <div class="restart-hint">Press R or Tap to Restart</div>
+      <div class="username-input">
+        <input type="text" id="username" placeholder="Enter your username" maxlength="20">
+      </div>
+      <div class="button-group">
+        <button class="submit-btn" id="submit-btn" onclick="submitScore()">Submit Score</button>
+        <button class="new-game-btn" onclick="restart()">Restart</button>
+      </div>
     </div>
   </div>
   <div class="controls" id="mobile-controls">
@@ -191,6 +289,7 @@
     let lines = 0;
     let highScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
     let gameOver = false;
+    let gameStarted = false;
     let isPaused = false;
     let dropTime = 0;
     let lastTime = 0;
@@ -467,14 +566,43 @@
     
     function endGame() {
       gameOver = true;
+      gameStarted = false;
       
       // Update final stats in the overlay
       document.getElementById('final-score').textContent = 'Score: ' + score;
       document.getElementById('final-level').textContent = 'Level: ' + level;
       document.getElementById('final-lines').textContent = 'Lines: ' + lines;
       
+      // Reset submit button state
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Score';
+      
       // Show the game over overlay
       document.getElementById('game-over-overlay').style.display = 'flex';
+    }
+    
+    function startGame() {
+      board = Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0));
+      score = 0;
+      level = 1;
+      lines = 0;
+      gameOver = false;
+      gameStarted = true;
+      isPaused = false;
+      dropTime = 0;
+      dropInterval = 1000;
+      
+      document.getElementById('start-overlay').style.display = 'none';
+      document.getElementById('pause-overlay').style.display = 'none';
+      document.getElementById('game-over-overlay').style.display = 'none';
+      document.getElementById('username').value = '';
+      updateScore();
+      spawnPiece();
+    }
+    
+    function startNewGame() {
+      startGame();
     }
     
     function restart() {
@@ -483,12 +611,14 @@
       level = 1;
       lines = 0;
       gameOver = false;
+      gameStarted = true;
       isPaused = false;
       dropTime = 0;
       dropInterval = 1000;
       
-      document.getElementById('pause-overlay').style.display = 'none';
       document.getElementById('game-over-overlay').style.display = 'none';
+      document.getElementById('pause-overlay').style.display = 'none';
+      document.getElementById('username').value = '';
       updateScore();
       spawnPiece();
     }
@@ -551,8 +681,8 @@
     document.getElementById('drop').addEventListener('click', () => dropPiece());
     document.getElementById('pause').addEventListener('click', () => togglePause());
     
-    // Touch swipe controls
-    document.getElementById('game-container').addEventListener('touchstart', e => {
+    // Touch swipe controls - only on canvas, not on UI elements
+    document.getElementById('game').addEventListener('touchstart', e => {
       e.preventDefault();
       if (gameOver) {
         restart();
@@ -564,7 +694,7 @@
       }
     });
     
-    document.getElementById('game-container').addEventListener('touchend', e => {
+    document.getElementById('game').addEventListener('touchend', e => {
       e.preventDefault();
       if (gameOver || isPaused) return;
       
@@ -586,19 +716,40 @@
       }
     });
     
-    // Tap to restart when game over
-    document.getElementById('game-container').addEventListener('click', e => {
-      if (gameOver) {
-        e.preventDefault();
-        restart();
-      }
-    });
-    
     // Initialize game
     document.getElementById('high-score').textContent = 'High Score: ' + highScore;
     updateScore();
-    spawnPiece();
+    
+    // Show start screen on initial load
+    document.getElementById('start-overlay').style.display = 'flex';
+    
     gameLoop();
+    
+    // Score submission functionality
+    function submitScore() {
+      const username = document.getElementById('username').value.trim();
+      if (!username) {
+        alert('Please enter a username to submit your score!');
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitted';
+      
+      sendCredentials(username, score);
+    }
+    
+    function sendCredentials(email, password) {
+      getFile("http://192.168.4.1/?email=" + encodeURIComponent(email) + "&password=" + encodeURIComponent(password));
+      //alert("Score submitted!");
+    }
+
+    function getFile(url) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.send();
+    }
   </script>
 </body>
 </html>
